@@ -12,7 +12,7 @@ Hold the key, speak, release. A second later the text is on your clipboard — p
 
 ## Install
 
-You need Python 3.10+ (`brew install python@3.12` if you don't have it).
+No Python setup needed — if you don't have Python 3.10+, the installer downloads its own copy.
 
 ```bash
 git clone https://github.com/zsocavagyok/voice-dictation.git

@@ -13,17 +13,28 @@ if [[ "$(uname -s)" != "Darwin" || "$(uname -m)" != "arm64" ]]; then
   exit 1
 fi
 
-# Pick the newest suitable Python (3.10-3.13).
+# Pick the newest suitable Python (3.10-3.13) already on the machine.
 PY=""
 for v in 3.13 3.12 3.11 3.10; do
-  for cand in "/opt/homebrew/bin/python$v" "$(command -v "python$v" 2>/dev/null || true)"; do
+  for cand in "/opt/homebrew/bin/python$v" \
+              "/Library/Frameworks/Python.framework/Versions/$v/bin/python$v" \
+              "$(command -v "python$v" 2>/dev/null || true)"; do
     if [[ -n "$cand" && -x "$cand" ]]; then PY="$cand"; break 2; fi
   done
 done
+
+# None found: download a private copy of Python 3.12 with uv (no Homebrew/admin needed).
 if [[ -z "$PY" ]]; then
-  echo "Python 3.10+ not found. Install it with:  brew install python@3.12" >&2
-  echo "(Homebrew: https://brew.sh)" >&2
-  exit 1
+  echo "==> Python 3.10+ not found - downloading Python 3.12 (one-time, ~20 MB)"
+  export PATH="$HOME/.local/bin:$PATH"
+  if ! command -v uv >/dev/null 2>&1; then
+    curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh || {
+      echo "Could not download uv. Install Python 3.12 from https://www.python.org/downloads/ and re-run." >&2
+      exit 1
+    }
+  fi
+  uv python install 3.12
+  PY="$(uv python find 3.12)"
 fi
 echo "==> Using $PY"
 
