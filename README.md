@@ -13,6 +13,8 @@ Hold the key, speak, release. A second later the text is on your clipboard — p
 
 ## Install
 
+📄 **Step-by-step guide (PDF):** [docs/Voice-Dictation-Setup-Guide.pdf](docs/Voice-Dictation-Setup-Guide.pdf)
+
 No Python setup needed — if you don't have Python 3.10+, the installer downloads its own copy.
 
 ```bash
