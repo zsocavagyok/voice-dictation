@@ -37,7 +37,7 @@ macOS will ask for two permissions — allow both, then quit and reopen the app:
 ./autostart.sh        # enable  (./autostart.sh off to disable)
 ```
 
-This opens a Terminal window running `./run.sh` at login — minimize it, don't close it.
+The app runs in the background — no Terminal window needed.
 
 ## Menu-bar icon
 
@@ -63,4 +63,5 @@ The menu also has **Recent** (click to re-copy one of your last 5 transcripts) a
   "Voice Dictation" in Privacy & Security → Input Monitoring, then restart the app.
 - **Mic/permission issues with the .app** → run `./run.sh` from Terminal instead
   (permissions then go to Terminal). Errors print there.
+- **After re-running `./install.sh`** macOS asks for the permissions again (the app is rebuilt).
 - Logs: `~/Library/Logs/VoiceDictation.log`

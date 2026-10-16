@@ -7,6 +7,7 @@ cd "$(dirname "$0")"
 REPO_DIR="$(pwd)"
 MODEL="${DICTATION_MODEL:-mlx-community/whisper-large-v3-turbo}"
 APP="$HOME/Applications/Voice Dictation.app"
+BUNDLE_ID="local.voice-dictation"
 
 if [[ "$(uname -s)" != "Darwin" || "$(uname -m)" != "arm64" ]]; then
   echo "This app needs macOS on Apple Silicon (M1 or newer)." >&2
@@ -48,24 +49,27 @@ echo "==> Downloading Whisper model $MODEL (~1.6 GB, first time only)"
 .venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('$MODEL')"
 
 echo "==> Building $APP"
+if ! command -v cc >/dev/null 2>&1; then
+  echo "A C compiler is needed. Run:  xcode-select --install   then re-run ./install.sh" >&2
+  exit 1
+fi
+pkill -f "$REPO_DIR/dictation.py" 2>/dev/null || true
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
-cat > "$APP/Contents/MacOS/VoiceDictation" <<SH
-#!/bin/bash
-mkdir -p "\$HOME/Library/Logs"
-exec "$REPO_DIR/.venv/bin/python" "$REPO_DIR/dictation.py" >> "\$HOME/Library/Logs/VoiceDictation.log" 2>&1
-SH
-chmod +x "$APP/Contents/MacOS/VoiceDictation"
+mkdir -p "$APP/Contents/MacOS" "$HOME/Library/Logs"
+cc -O2 -Wall \
+  -DPYTHON_PATH="\"$REPO_DIR/.venv/bin/python\"" \
+  -DSCRIPT_PATH="\"$REPO_DIR/dictation.py\"" \
+  launcher.c -o "$APP/Contents/MacOS/VoiceDictation"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key><string>Voice Dictation</string>
-  <key>CFBundleIdentifier</key><string>local.voice-dictation</string>
+  <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundleExecutable</key><string>VoiceDictation</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleVersion</key><string>1.0</string>
+  <key>CFBundleVersion</key><string>2.0</string>
   <key>LSUIElement</key><true/>
   <key>NSMicrophoneUsageDescription</key>
   <string>Voice Dictation records your voice while you hold the hotkey, to transcribe it.</string>
@@ -73,12 +77,15 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 codesign --force --sign - "$APP" >/dev/null 2>&1 || true
+# A rebuilt app has a new signature; clear stale permission entries so macOS asks again.
+tccutil reset Microphone "$BUNDLE_ID" >/dev/null 2>&1 || true
+tccutil reset ListenEvent "$BUNDLE_ID" >/dev/null 2>&1 || true
 
 echo
 echo "Done!"
-echo "  Start it:        open \"$APP\"   (or ./run.sh to run in this terminal)"
-echo "  Auto-start:      System Settings > General > Login Items > + > Voice Dictation"
+echo "  Start it:        open \"$APP\""
+echo "  Auto-start:      ./autostart.sh"
 echo "  Logs:            ~/Library/Logs/VoiceDictation.log"
 echo
-echo "On first start macOS asks for Microphone and Input Monitoring access - allow both,"
-echo "then quit and reopen the app."
+echo "On first start macOS asks for Microphone and Input Monitoring access for"
+echo "\"Voice Dictation\" - allow both, then quit (menu-bar icon > Quit) and reopen the app."

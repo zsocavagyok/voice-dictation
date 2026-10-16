@@ -6,8 +6,10 @@ Hold Right Command -> record Hungarian
 Release            -> transcribe locally with Whisper (MLX) and copy to clipboard.
 """
 
+import fcntl
 import os
 import queue
+import sys
 import subprocess
 import threading
 import time
@@ -354,6 +356,18 @@ def copy_to_clipboard(text):
     pb.setString_forType_(text, NSPasteboardTypeString)
 
 
+def single_instance():
+    """Exit if another copy is already running (two copies would both react to hotkeys)."""
+    lock = open(os.path.expanduser("~/Library/Caches/voice-dictation.lock"), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        log("Another copy of Voice Dictation is already running - exiting")
+        sys.exit(0)
+    return lock
+
+
 if __name__ == "__main__":
+    _lock = single_instance()
     log("Starting Voice Dictation")
     DictationApp().run()
