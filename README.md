@@ -33,7 +33,10 @@ It works like any Mac app:
 - **Close:** right-click its Dock icon → **Quit** (or ⌘Q while it's active).
 - **Click the Dock icon** while it runs → shows the hotkeys and a Quit button.
 
-While it's closed it uses no memory; while open it uses ~2.3 GB (the Whisper model).
+While it's closed it uses no memory. While open it uses ~2.3 GB (the Whisper model),
+but after **10 minutes without dictation** it unloads the model and drops to a few
+hundred MB. The first dictation after that takes a few seconds longer while the model
+reloads. Change the delay with `IDLE_UNLOAD_MINUTES` in `dictation.py` (0 = never unload).
 
 ### Permissions (first launch)
 

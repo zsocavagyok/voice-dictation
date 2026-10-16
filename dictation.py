@@ -7,6 +7,7 @@ Release            -> transcribe locally with Whisper (MLX) and copy to clipboar
 """
 
 import fcntl
+import gc
 import os
 import queue
 import sys
@@ -42,6 +43,9 @@ SAMPLE_RATE = 16000
 MIN_SECONDS = 0.3          # ignore accidental taps shorter than this
 SILENCE_RMS = 0.002        # skip clips quieter than this (avoids Whisper hallucinations)
 HISTORY_SIZE = 5
+# Free the model's memory (~2 GB) after this many minutes without dictation.
+# The next dictation then takes a few extra seconds to reload it. 0 = never unload.
+IDLE_UNLOAD_MINUTES = float(os.environ.get("DICTATION_IDLE_MINUTES", "10"))
 
 # macOS virtual keycode -> (language, device-specific modifier flag bit)
 HOTKEYS = {
@@ -103,8 +107,12 @@ class Transcriber(threading.Thread):
         self.ready = False
 
     def run(self):
-        import mlx_whisper  # heavy import, keep it off the main thread
+        import mlx.core as mx  # heavy imports, keep them off the main thread
+        import mlx_whisper
+        from mlx_whisper.transcribe import ModelHolder  # caches the loaded model
 
+        self._mx = mx
+        self._model_holder = ModelHolder
         self._mlx_whisper = mlx_whisper
         try:
             # Warm-up: downloads the model on first run and compiles kernels.
@@ -116,13 +124,30 @@ class Transcriber(threading.Thread):
         log("Model loaded - ready")
         self.results.put(("ready", None))
 
+        loaded = True
+        last_used = time.monotonic()
+        idle_limit = IDLE_UNLOAD_MINUTES * 60
         while True:
-            audio, lang = self.jobs.get()
+            try:
+                audio, lang = self.jobs.get(timeout=30)
+            except queue.Empty:
+                if loaded and idle_limit > 0 and time.monotonic() - last_used > idle_limit:
+                    self._unload()
+                    loaded = False
+                    self.results.put(("unloaded", None))
+                continue
+
+            if not loaded:
+                log("Reloading model")
             log(f"Transcribing {audio.size / SAMPLE_RATE:.1f}s of {lang}")
             try:
                 self.results.put(("text", self._transcribe(audio, lang)))
             except Exception as e:
                 self.results.put(("error", str(e)))
+            if not loaded:
+                loaded = True
+                self.results.put(("ready", None))
+            last_used = time.monotonic()
 
     def _transcribe(self, audio, lang):
         out = self._mlx_whisper.transcribe(
@@ -133,7 +158,20 @@ class Transcriber(threading.Thread):
             condition_on_previous_text=False,
             verbose=None,
         )
+        self._clear_cache()
         return out["text"].strip()
+
+    def _clear_cache(self):
+        # Release MLX's scratch buffers left over from the last transcription.
+        clear = getattr(self._mx, "clear_cache", None) or self._mx.metal.clear_cache
+        clear()
+
+    def _unload(self):
+        self._model_holder.model = None
+        self._model_holder.model_path = None
+        gc.collect()
+        self._clear_cache()
+        log(f"Model unloaded after {IDLE_UNLOAD_MINUTES:g} min idle (frees ~2 GB)")
 
 
 def clean(text):
@@ -295,6 +333,8 @@ class DictationApp(rumps.App):
                 break
             if kind == "ready":
                 self.status_item.title = "Ready"
+            elif kind == "unloaded":
+                self.status_item.title = "Ready (sleeping – first dictation takes a few seconds longer)"
             elif kind == "text":
                 self.pending -= 1
                 text = clean(payload)
