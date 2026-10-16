@@ -12,6 +12,10 @@ import subprocess
 import threading
 import time
 
+
+def log(msg):
+    print(time.strftime("%H:%M:%S"), msg, flush=True)
+
 import numpy as np
 import rumps
 import sounddevice as sd
@@ -96,10 +100,12 @@ class Transcriber(threading.Thread):
             self.results.put(("error", f"Model load failed: {e}"))
             return
         self.ready = True
+        log("Model loaded - ready")
         self.results.put(("ready", None))
 
         while True:
             audio, lang = self.jobs.get()
+            log(f"Transcribing {audio.size / SAMPLE_RATE:.1f}s of {lang}")
             try:
                 self.results.put(("text", self._transcribe(audio, lang)))
             except Exception as e:
@@ -180,8 +186,10 @@ class DictationApp(rumps.App):
             None,
         )
         if self._tap is None:
+            log("Hotkey listener NOT installed - Input Monitoring permission missing")
             self._tap_missing = True
             return
+        log("Hotkey listener installed")
         self._tap_missing = False
         source = Quartz.CFMachPortCreateRunLoopSource(None, self._tap, 0)
         Quartz.CFRunLoopAddSource(
@@ -220,18 +228,22 @@ class DictationApp(rumps.App):
 
     def _start(self, lang, keycode):
         if not self.transcriber.ready:
+            log("Hotkey pressed, but model is still loading")
             return
         try:
             self.recorder.start()
         except Exception as e:
+            log(f"Microphone error: {e}")
             self._notify("Microphone error", str(e))
             return
         self.active_lang, self.active_key = lang, keycode
         self.started_at = time.monotonic()
         self.title = ICON_REC[lang]
+        log(f"Recording ({lang})")
         self._sound("Tink")
 
     def _cancel(self):
+        log("Recording cancelled (key used in a shortcut)")
         self.recorder.stop()
         self.active_lang = self.active_key = None
         self._refresh_title()
@@ -243,9 +255,12 @@ class DictationApp(rumps.App):
         self.active_lang = self.active_key = None
 
         if duration < MIN_SECONDS or audio.size == 0:
+            log(f"Ignored: too short ({duration:.2f}s)")
             self._refresh_title()
             return
-        if float(np.sqrt(np.mean(audio ** 2))) < SILENCE_RMS:
+        rms = float(np.sqrt(np.mean(audio ** 2)))
+        if rms < SILENCE_RMS:
+            log(f"Ignored: silence (level {rms:.4f}) - is the microphone allowed?")
             self._refresh_title()
             return
 
@@ -270,11 +285,13 @@ class DictationApp(rumps.App):
             elif kind == "text":
                 self.pending -= 1
                 text = clean(payload)
+                log(f"Result: {text!r}")
                 if text:
                     copy_to_clipboard(text)
                     self._add_history(text)
                     self._sound("Pop")
             elif kind == "error":
+                log(f"ERROR: {payload}")
                 if self.pending:
                     self.pending -= 1
                 self.status_item.title = f"Error: {payload[:60]}"
@@ -338,4 +355,5 @@ def copy_to_clipboard(text):
 
 
 if __name__ == "__main__":
+    log("Starting Voice Dictation")
     DictationApp().run()
