@@ -33,7 +33,11 @@ macOS will ask for two permissions — allow both, then quit and reopen the app:
 
 ### Start at login
 
-System Settings → General → Login Items → **+** → `~/Applications/Voice Dictation.app`.
+```bash
+./autostart.sh        # enable  (./autostart.sh off to disable)
+```
+
+This opens a Terminal window running `./run.sh` at login — minimize it, don't close it.
 
 ## Menu-bar icon
 
