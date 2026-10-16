@@ -18,6 +18,18 @@ import time
 def log(msg):
     print(time.strftime("%H:%M:%S"), msg, flush=True)
 
+
+MODEL = os.environ.get("DICTATION_MODEL", "mlx-community/whisper-large-v3-turbo")
+
+# Fully offline once the model is downloaded: don't let Hugging Face check for
+# updates on startup. (Must be set before huggingface_hub is imported.)
+_cache = os.path.join(
+    os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface")),
+    "hub", "models--" + MODEL.replace("/", "--"), "snapshots",
+)
+if os.path.isdir(_cache) and os.listdir(_cache):
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+
 import numpy as np
 import rumps
 import sounddevice as sd
@@ -26,7 +38,6 @@ from AppKit import NSPasteboard, NSPasteboardTypeString, NSSound
 
 # ---------------------------------------------------------------- settings ---
 
-MODEL = os.environ.get("DICTATION_MODEL", "mlx-community/whisper-large-v3-turbo")
 SAMPLE_RATE = 16000
 MIN_SECONDS = 0.3          # ignore accidental taps shorter than this
 SILENCE_RMS = 0.002        # skip clips quieter than this (avoids Whisper hallucinations)

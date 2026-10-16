@@ -1,7 +1,8 @@
 # Voice Dictation 🎙
 
 Push-to-talk dictation for macOS (Apple Silicon) in **English** and **Hungarian**.
-Everything runs locally with Whisper (large-v3-turbo via MLX) — no internet, no API key.
+Everything runs locally with Whisper (large-v3-turbo via MLX) — no API key, and after the one-time
+model download it works fully offline. Your audio never leaves your Mac.
 
 | Hold            | Language  |
 |-----------------|-----------|
