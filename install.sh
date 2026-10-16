@@ -35,7 +35,8 @@ if [[ -z "$PY" ]]; then
     }
   fi
   uv python install 3.12
-  PY="$(uv python find 3.12)"
+  # Run from / and without VIRTUAL_ENV so uv returns the real interpreter, not our own .venv.
+  PY="$(cd / && env -u VIRTUAL_ENV uv python find --no-project 3.12)"
 fi
 echo "==> Using $PY"
 
