@@ -24,6 +24,17 @@ open ~/Applications/"Voice Dictation.app"
 
 The installer downloads the Whisper model (~1.6 GB) once.
 
+### Opening and closing
+
+It works like any Mac app:
+
+- **Open:** ⌘Space → "Voice Dictation", or double-click it in `~/Applications`.
+  Tip: drag it to the Dock for one-click start.
+- **Close:** right-click its Dock icon → **Quit** (or ⌘Q while it's active).
+- **Click the Dock icon** while it runs → shows the hotkeys and a Quit button.
+
+While it's closed it uses no memory; while open it uses ~2.3 GB (the Whisper model).
+
 ### Permissions (first launch)
 
 macOS will ask for two permissions — allow both, then quit and reopen the app:
@@ -41,6 +52,9 @@ macOS will ask for two permissions — allow both, then quit and reopen the app:
 The app runs in the background — no Terminal window needed.
 
 ## Menu-bar icon
+
+Besides the Dock icon there's a small status icon in the menu bar (it may be
+hidden behind the notch if your menu bar is full):
 
 | Icon     | Meaning                         |
 |----------|---------------------------------|

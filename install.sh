@@ -56,10 +56,22 @@ fi
 pkill -f "$REPO_DIR/dictation.py" 2>/dev/null || true
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$HOME/Library/Logs"
-cc -O2 -Wall \
+mkdir -p "$APP/Contents/Resources"
+cc -O2 -Wall -fobjc-arc -framework Cocoa \
   -DPYTHON_PATH="\"$REPO_DIR/.venv/bin/python\"" \
   -DSCRIPT_PATH="\"$REPO_DIR/dictation.py\"" \
-  launcher.c -o "$APP/Contents/MacOS/VoiceDictation"
+  launcher.m -o "$APP/Contents/MacOS/VoiceDictation"
+
+# App icon (optional - a generic icon is used if this fails).
+ICONSET="$(mktemp -d)/AppIcon.iconset"
+mkdir -p "$ICONSET"
+if .venv/bin/python make_icon.py "$ICONSET/icon_512x512@2x.png" 2>/dev/null; then
+  for sz in 16 32 128 256 512; do
+    sips -z $sz $sz "$ICONSET/icon_512x512@2x.png" --out "$ICONSET/icon_${sz}x${sz}.png" >/dev/null
+    sips -z $((sz*2)) $((sz*2)) "$ICONSET/icon_512x512@2x.png" --out "$ICONSET/icon_${sz}x${sz}@2x.png" >/dev/null
+  done
+  iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns" || true
+fi
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -69,8 +81,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundleExecutable</key><string>VoiceDictation</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleVersion</key><string>2.0</string>
-  <key>LSUIElement</key><true/>
+  <key>CFBundleVersion</key><string>3.0</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>NSHighResolutionCapable</key><true/>
   <key>NSMicrophoneUsageDescription</key>
   <string>Voice Dictation records your voice while you hold the hotkey, to transcribe it.</string>
 </dict>
@@ -88,4 +101,4 @@ echo "  Auto-start:      ./autostart.sh"
 echo "  Logs:            ~/Library/Logs/VoiceDictation.log"
 echo
 echo "On first start macOS asks for Microphone and Input Monitoring access for"
-echo "\"Voice Dictation\" - allow both, then quit (menu-bar icon > Quit) and reopen the app."
+echo "\"Voice Dictation\" - allow both, then quit it (right-click the Dock icon > Quit) and reopen it."
